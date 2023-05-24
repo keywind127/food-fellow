@@ -2,6 +2,7 @@ from user_manager import UserManager, hash_password_and_salt
 from ip_manager import IPManager, IPRecord
 from email_manager import GmailManager
 from cryptography.fernet import Fernet
+from time_utils import TimeStamp
 from typing import *
 import os
 
@@ -14,6 +15,8 @@ class AccessManager:
     STATE_LOGIN_INVALID = 1
 
     STATE_LOGIN_NO_USER = 2
+
+    STATE_LOGIN_BLOCKED = 3
 
     STATE_REGISTER_SUCCESS = 0
 
@@ -182,7 +185,7 @@ class AccessManager:
 
         # reject authentication request for blacklisted IP addresses
         if not (self._verify_clean_ip(ip_address)):
-            return self.STATE_LOGIN_INVALID
+            return self.STATE_LOGIN_BLOCKED
 
         # attempt to login with username and password
         login_status = self._authenticate_login(username, password)

@@ -72,7 +72,7 @@ class Review(dict):
         })
 
     @classmethod
-    def simplify(self, review_document : Dict[ str, Any ]) -> Dict[ str, Any ]:
+    def simplify(class_, review_document : Dict[ str, Any ]) -> Dict[ str, Any ]:
         return {
             key : value for key, value in review_document.items()
                 if key not in class_._HIDDEN_FIELDS
