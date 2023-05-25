@@ -1,12 +1,12 @@
 from user_manager import UserManager, hash_password_and_salt
 from ip_manager import IPManager, IPRecord
 from email_manager import GmailManager
-from cryptography.fernet import Fernet
+from crypto_utils import CryptoUtils
 from time_utils import TimeStamp
 from typing import *
 import os
 
-class AccessManager:
+class AccessManager(CryptoUtils):
 
     ACTIVATION_EXPIRE_TIME = 600
 
@@ -30,39 +30,9 @@ class AccessManager:
 
     STATE_ACTIVATE_FAILURE = 2
 
-    BASE_SITE_URL = "http://localhost:127"
+    BASE_SITE_URL = "http://localhost:5000"
 
-    MAX_LOGIN_FAILURES = 5
-
-    def __deco_crypt(crypt_function : Callable) -> Callable:
-
-        def __cryptography(self, data : Any) -> Tuple[ bool, Union[ Any, None ] ]:
-
-            # either encrypt or decrypt
-            try:
-                return (True, crypt_function(self, data))
-
-            # allow keyboard interrupt
-            except (KeyboardInterrupt):
-                raise 
-
-            # return (flag == False) on exception
-            except (Exception):
-                return (False, None)
-
-        return __cryptography
-
-    @__deco_crypt
-    def _encrypt_data(self, data : Any) -> str:
-
-        # stringify => binary encoding => encryption => string decoding
-        return self.crypt.encrypt(str(data).encode(encoding = "utf-8")).decode(encoding = "utf-8")
-
-    @__deco_crypt 
-    def _decrypt_data(self, data : str) -> Any:
-
-        # binary encoding => decryption => string decoding 
-        return eval(self.crypt.decrypt(bytes(data, encoding = "utf-8")).decode(encoding = "utf-8"))
+    MAX_LOGIN_FAILURES = 50000
 
     def __init__(self, user_manager  : UserManager, 
                        gmail_manager : GmailManager,
@@ -70,8 +40,7 @@ class AccessManager:
 
         assert isinstance(user_manager, UserManager)
         
-        # used to encrypt and decrypt data
-        self.crypt = Fernet(Fernet.generate_key())
+        super(AccessManager, self).__init__()
 
         # used to send emails
         self.gmail_manager = gmail_manager
@@ -121,7 +90,7 @@ class AccessManager:
     def _send_activation_link(self, username : str, password : str) -> bool:
 
         # email subject
-        subject = "Please activate your account."
+        subject = "Food-Fellow Account Activation"
 
         # pack activation data then encrypt it
         success, activation_key = self._encrypt_data(self.__create_activation_object(username, password))
@@ -133,7 +102,9 @@ class AccessManager:
         # obtain activation link 
         #   [ "http://localhost:127", "activate", "ABCD" ] 
         #       => "http://localhost:127/activation?key=ABCD"
-        content = os.path.join(self.BASE_SITE_URL, "activate") + f"?key={activation_key}"
+        activation_key = os.path.join(self.BASE_SITE_URL, "activate").replace("\\", "/") + f"?key={activation_key}"
+
+        content = f"Please activate your account: {activation_key}"
 
         # send the email and return status code
         #   1. [ True  ] <=> [ SUCCESS ]

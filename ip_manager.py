@@ -61,9 +61,7 @@ class IPManager:
         # insert new record
         self.collection.insert_one(ip_record)
 
-    def __recent_filter(self, ip_address       : Optional[ str  ] = None, 
-                              is_failure       : Optional[ bool ] = None, 
-                              before_not_after : Optional[ bool ] = True) -> Dict[ str, Any ]:
+    def __recent_filter(self, before_not_after : Optional[ bool ] = True) -> Dict[ str, Any ]:
 
         # obtain current time
         current_time = TimeStamp.current_time()
@@ -83,25 +81,37 @@ class IPManager:
             # before or after backtrace period
             return comparison_function(elapsed_time, self._FAILURE_BACKTRACE_PERIOD)
 
-        # specify whether new or old records
-        recent_filter = { "$where" : verify_recent }
-
-        # whether to specify IP address
-        if (ip_address is not None):
-            recent_filter["ip-address"] = ip_address
-
-        # whether to search for failures or successes
-        if (is_failure is not None):
-            recent_filter["is-failure"] = is_failure
-
-        return recent_filter
+        return verify_recent
 
     def _prune_memory(self) -> None:
 
         # remove records older than backtrace period
-        self.collection.delete_many(self.__recent_filter(before_not_after = False))
+        #self.collection.delete_many(self.__recent_filter(before_not_after = False))
+
+        old_failures = self.collection.find({ "is_failure" : True })
+
+        deletion_ids = []
+
+        recent_filter = self.__recent_filter(False)
+
+        for document in old_failures:
+
+            if (recent_filter(document)):
+
+                deletion_ids.append(document["_id"])
+
+        self.collection.delete_many({ "_id" : { "$in" : deletion_ids } })
 
     def num_failures(self, ip_address : str) -> int:
 
-        # quantity of recent failures of specific IP
-        return self.collection.count_documents(self.__recent_filter(ip_address, is_failure = True))
+        ip_failures = self.collection.find({ "ip-address" : ip_address, "is_failure" : True })
+
+        counter = 0
+
+        recent_filter = self.__recent_filter()
+
+        for document in ip_failures:
+            if (recent_filter(document)):
+                counter += 1
+
+        return counter 

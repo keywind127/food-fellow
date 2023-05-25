@@ -1,0 +1,31 @@
+<html>
+    <head>
+        <title>Account Login</title>
+        <script src = "https://code.jquery.com/jquery-3.6.0.min.js" defer></script>
+        <script src = "{{  url_for('static', filename = 'login.js')  }}"></script>
+        <script src = "{{  url_for('static', filename = 'register.js')  }}"></script>
+        <link rel = "stylesheet" href = "{{  url_for('static', filename = 'login.css')  }}">
+    </head>
+    <body>
+        <div id = "top-section">
+            <h1 id = "site-name">Food-Fellow</h1>
+        </div>
+        <div id = "low-section">
+            <div id = "credentials-form">
+                <h3 id = "form-name">Login or Register</h1>
+                <div id = "email-section" class = "input-section">
+                    <label id = "email-text">Email: </label>
+                    <input id = "email" class = "input-box" type = "text" name = "username" placeholder = "email">
+                </div>
+                <div id = "password-section" class = "input-section">
+                    <label id = "password-text">Password: </label>
+                    <input id = "password" class = "input-box" type = "password" name = "password" placeholder = "password">
+                </div>
+                <div id = "button-section" class = "input-section">
+                    <button id = "login" class = "submit-button" onclick = "login();">Login</button>
+                    <button id = "register" class = "submit-button" onclick = "register();">Register</button>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

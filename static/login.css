@@ -1,0 +1,36 @@
+* {
+    margin : 0;  padding : 0;
+}
+html, body {
+    height : 100%;  width : 100%;
+}
+body {
+    background-color : grey;
+}
+#top-section {
+    background-color : lightgreen;  height : 50px;  text-align : center;  padding : 10px;
+}
+#site-name {
+    color : white;
+}
+#low-section {
+    background-color : darkgreen;  
+}
+#credentials-form {
+    background-color : yellow;  width : 60%;  margin : 0 auto;  text-align : center;
+}
+#form-name { 
+    color : blue;
+}
+.input-section {
+    width : 225px;  display : block;  margin : 5px auto;  
+}
+#email-section, #password-section {
+    text-align : right;
+}
+.input-box {
+    text-align : center;
+}
+.submit-button {
+    width : 100px;  height : 25px;
+}

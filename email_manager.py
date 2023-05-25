@@ -28,6 +28,12 @@ class GmailManager:
 
     def send(self, receiver : str, subject : str, body : str) -> bool:
 
+        print(receiver, type(receiver))
+
+        print(subject, type(subject))
+
+        print(body, type(body))
+
         assert isinstance(receiver, str)
 
         assert isinstance(subject, str)

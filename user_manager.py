@@ -1,3 +1,4 @@
+from email_manager import GmailManager
 from pymongo.database import Database
 from bson.objectid import ObjectId
 import hashlib, random 
@@ -27,7 +28,9 @@ def hash_password_and_salt(password : str, salt : str) -> str:
 
 class User(dict):
 
-    def __init__(self, username : str, password : str, salt_length : Optional[ int ] = 30) -> None:
+    def __init__(self, username      : str, 
+                       password      : str, 
+                       salt_length   : Optional[ int ] = 30) -> None:
 
         super(User, self).__init__()
 
@@ -55,10 +58,13 @@ class UserManager:
     # salt string length
     _SALT_LENGTH = 30
 
-    def __init__(self, database : Database) -> None:
+    def __init__(self, database : Database, gmail_manager : GmailManager) -> None:
 
         # Food-Fellow (MongoDB) database object
         self.database = database 
+
+        # used to send email notification
+        self.gmail_manager = gmail_manager
 
         # collection containing user information
         #self.collection = self.database[self._USER_COLLECTION_NAME]
@@ -98,7 +104,7 @@ class UserManager:
         #   2. not bookmarked => False
         return not bookmarked
 
-    def recommend_to_user(self, username : str, review_id : ObjectId) -> bool:
+    def recommend_to_user(self, username : str, review_id : ObjectId, recommender : str) -> bool:
 
         # check if review already recommended
         if (self._recommended_to_user(username, review_id)):
@@ -111,6 +117,12 @@ class UserManager:
             filter = { "username" : username                             },
             update = { "$push"    : { "unread_recommended" : review_id } }
         )
+
+        subject = "Food-Fellow: A New Recommendation"
+
+        body = f"{recommender} has recommended a review to you!"
+
+        self.gmail_manager.send(username, subject, body)
 
         # return True to indicate changes are made
         return True 

@@ -1,10 +1,11 @@
-from flask import Flask, session, request, redirect, render_template
+from flask import Flask, session, request, url_for, redirect, render_template
 from bson.objectid import ObjectId
 from flask_pymongo import PyMongo
 from flask_session import Session
 
+from report_manager import ReportManager
 from access_manager import AccessManager
-from review_manager import ReviewManager
+from review_manager import ReviewManager, Review
 from email_manager import GmailManager
 from user_manager import UserManager
 from ip_manager import IPManager
@@ -23,15 +24,17 @@ Session(app)
 
 database = PyMongo(app)
 
-user_manager = UserManager(database)
-
 review_manager = ReviewManager(database)
 
 ip_manager = IPManager(database)
 
 gmail_manager = GmailManager("ndhusmartank@gmail.com", "elkperuybhrkqrvt")
 
+user_manager = UserManager(database, gmail_manager)
+
 access_manager = AccessManager(user_manager, gmail_manager, ip_manager)
+
+report_manager = ReportManager(review_manager, gmail_manager)
 
 def user_logged_in() -> bool:
     return (session.get("username", None) is not None)
@@ -40,12 +43,9 @@ def user_logged_in() -> bool:
 def index():
     # ask the user to login if they have not
     if (session.get("username", None) is None):
-        ip_address = request.remote_addr
-        print("IP: {}".format(ip_address))
-        print(ip_manager.ip_blacklisted(ip_address))
-        return "Hello"
+        return render_template("login.html")
     # show the home page
-    pass 
+    return render_template("index.html")
 
 LOGOUT_STRING_STATES = ("not-logged-in", "logged-out")
 
@@ -68,7 +68,10 @@ def logout():
         # user logged out
         response_message[LOGOUT_RETURN_STATUS] = LOGOUT_STRING_STATES[LOGOUT_STATE_LOG_OUT]
 
-    return json.dumps(response_message)
+    if (request.method == "POST"):
+        return json.dumps(response_message)
+
+    return redirect(url_for("index"))
     
 LOGIN_STRING_STATES = ("already-logged-in", "login-success", "incorrect-password", "invalid-username", "access-denied", "internal-error")
 
@@ -90,14 +93,14 @@ LOGIN_RETURN_STATUS = "status"
 def login():
 
     # extract username
-    username = request.form.get("username", None)
+    username = request.get_json().get("username", "")
 
     # extract password
-    password = request.form.get("password", None)
+    password = request.get_json().get("password", "")
 
-    if ((username is None) or (password is None)):
+    if ((username == "") or (password == "")):
         return json.dumps({  REGISTER_RETURN_STATUS : REGISTER_STRING_STATES[REGISTER_STATE_ANOTHER]  })
-
+        
     # obtain the IP address
     ip_address = request.remote_addr
 
@@ -154,12 +157,12 @@ REGISTER_RETURN_STATUS = "status"
 def register():
 
     # extract username
-    username = request.form.get("username", None)
+    username = request.get_json().get("username", "")
 
     # extract password
-    password = request.form.get("password", None)
+    password = request.get_json().get("password", "")
 
-    if ((username is None) or (password is None)):
+    if ((username == "") or (password == "")):
         return json.dumps({  REGISTER_RETURN_STATUS : REGISTER_STRING_STATES[REGISTER_STATE_ANOTHER]  })
 
     response_message = {  REGISTER_RETURN_STATUS : REGISTER_STRING_STATES[REGISTER_STATE_SIGN_IN]  }
@@ -251,8 +254,11 @@ def upvote():
     # fetch review ID
     review_id = request.json.get("review-id", None)
 
+    # fetch username
+    username = session.get("username", None)
+
     # BRANCH 0 : review ID not provided
-    if (review_id is None):
+    if ((review_id is None) or (username is None)):
         return json.dumps({ UPVOTE_RETURN_STATUS : UPVOTE_STRING_STATES[UPVOTE_STATE_ANOTHER] })
     
     # convert review ID to ObjectId
@@ -263,10 +269,227 @@ def upvote():
         return json.dumps({ UPVOTE_RETURN_STATUS : UPVOTE_STRING_STATES[UPVOTE_STATE_NOEXIST] })
     
     # toggle upvote status
-    upvote_state = review_manager.upvote_review(session.get("username"), review_id)
+    upvote_state = review_manager.upvote_review(username, review_id)
 
     # BRANCH 3 : upvote (toggle) successful
     return json.dumps({ UPVOTE_RETURN_STATUS : UPVOTE_STRING_STATES[UPVOTE_STATE_SUCCESS], "upvote-state" : upvote_state })
+
+BOOKMARK_STRING_STATES = ("internal-error", "not-logged-in", "bookmark-success")
+
+BOOKMARK_STATE_ANOTHER = 0
+
+BOOKMARK_STATE_SIGN_IN = 1
+
+BOOKMARK_STATE_SUCCESS = 2
+
+BOOKMARK_RETURN_STATUS = "status"
+
+@app.route("/bookmark", methods = [ "POST" ])
+def bookmark():
+
+    # BRANCH 1 : user has not logged in
+    if not (user_logged_in()):
+        return json.dumps({ BOOKMARK_RETURN_STATUS : BOOKMARK_STRING_STATES[BOOKMARK_STATE_SIGN_IN] })
+
+    # fetch review ID
+    review_id = request.json.get("review-id", "")
+
+    # fetch username
+    username = session.get("username", "")
+
+    # BRANCH 0 : user not logged in or review not specified
+    if ((review_id == "") or (username == "")):
+        return json.dumps({ BOOKMARK_RETURN_STATUS : BOOKMARK_STRING_STATES[BOOKMARK_STATE_ANOTHER] })
+
+    # bookmark review to user
+    bookmark_state = user_manager.bookmark_to_user(username, ObjectId(review_id))
+
+    # BRANCH 2 : bookmark successful
+    return json.dumps({ BOOKMARK_RETURN_STATUS : BOOKMARK_STRING_STATES[BOOKMARK_STATE_SUCCESS], "bookmark-state" : bookmark_state })
+
+RECOMMEND_STRING_STATES = ("not-logged-in", "internal-error", "recommend-success", "invalid-user")
+
+RECOMMEND_STATE_SIGN_IN = 0
+
+RECOMMEND_STATE_ANOTHER = 1
+
+RECOMMEND_STATE_SUCCESS = 2
+
+RECOMMEND_STATE_NO_USER = 3
+
+RECOMMEND_RETURN_STATUS = "status"
+
+@app.route("/recommend", methods = [ "POST" ])
+def recommend():
+
+    # BRANCH 0 : user has not logged in
+    if not (user_logged_in()):
+        return json.dumps({ RECOMMEND_RETURN_STATUS : RECOMMEND_STRING_STATES[RECOMMEND_STATE_SIGN_IN] })
+
+    # fetch recommender username
+    recommender = session.get("username", "")
+
+    # fetch receiver username
+    username = request.json.get("username", "")
+
+    # fetch review ID
+    review_id = request.json.get("review-id", "")
+
+    # BRANCH 1 : any field not specified
+    if ((recommender == "") or (username == "") or (review_id == "")):
+        return json.dumps({ RECOMMEND_RETURN_STATUS : RECOMMEND_STRING_STATES[RECOMMEND_STATE_ANOTHER] })
+
+    # convert review ID to ObjectId
+    review_id = ObjectId(review_id)
+
+    # BRANCH 3 : specified user does not exist
+    if not (user_manager.user_exists(username)):
+        return json.dumps({ RECOMMEND_RETURN_STATUS : RECOMMEND_STRING_STATES[RECOMMEND_STATE_NO_USER]})
+
+    # recommend to user
+    recommend_state = user_manager.recommend_to_user(username, review_id, recommender)
+
+    # BRANCH 2 : recommendation successful
+    return json.dumps({ RECOMMEND_RETURN_STATUS : RECOMMEND_STRING_STATES[RECOMMEND_STATE_SUCCESS], "recommend-state" : recommend_state })
+
+REPORT_STRING_STATES = ("not-logged-in", "internal-error", "report-failure", "report-success")
+
+REPORT_STATE_SIGN_IN = 0
+
+REPORT_STATE_ANOTHER = 1
+
+REPORT_STATE_FAILURE = 2
+
+REPORT_STATE_SUCCESS = 3
+
+REPORT_RETURN_STATUS = "status"
+
+@app.route("/report", methods = [ "POST" ])
+def report():
+
+    # BRANCH 0 : user not logged in
+    if not (user_logged_in()):
+        return json.dumps({
+            REPORT_RETURN_STATUS : REPORT_STRING_STATES[REPORT_STATE_SIGN_IN]
+        })
+    
+    # fetch username
+    username = session.get("username", "")
+
+    # fetch review ID
+    review_id = request.get_json().get("review-id", "")
+
+    # BRANCH 1 : username or review ID unspecified
+    if ((username == "") or (review_id == "")):
+        return json.dumps({
+            REPORT_RETURN_STATUS : REPORT_STRING_STATES[REPORT_STATE_ANOTHER]
+        })
+
+    # send report ticket to admin
+    report_status = report_manager.report_review(review_id, username)
+
+    # BRANCH 3 : report successful
+    if (report_status):
+        return json.dumps({
+            REPORT_RETURN_STATUS : REPORT_STRING_STATES[REPORT_STATE_SUCCESS]
+        })
+
+    # BRANCH 2 : report failure
+    return json.dumps({
+        REPORT_RETURN_STATUS : REPORT_STRING_STATES[REPORT_STATE_FAILURE]
+    })
+
+REMOVAL_STRING_STATES = ("internal-error", "removal-success", "removal-failure")
+
+REMOVAL_STATE_ANOTHER = 0
+
+REMOVAL_STATE_SUCCESS = 1
+
+REMOVAL_STATE_FAILURE = 2
+
+REMOVAL_RETURN_STATUS = "status"
+
+@app.route("/remove", methods = [ "GET" ])
+def remove():
+
+    # extract removal key
+    removal_key = request.args.get("key", "")
+
+    # BRANCH 0 : removal key empty
+    if (removal_key == ""):
+        return json.dumps({
+            REMOVAL_RETURN_STATUS : REMOVAL_STRING_STATES[REMOVAL_STATE_ANOTHER]
+        })
+
+    # attempt to remove review
+    removal_status = report_manager.respond_to_report(removal_key)
+
+    # BRANCH 1 : review removal was successful
+    if (removal_status):
+        return json.dumps({
+            REMOVAL_RETURN_STATUS : REMOVAL_STRING_STATES[REMOVAL_STATE_SUCCESS]
+        })
+
+    # BRANCH 2 : review removal failed
+    return json.dumps({
+        REMOVAL_RETURN_STATUS : REMOVAL_STRING_STATES[REMOVAL_STATE_FAILURE]
+    })
+
+WRITE_STRING_STATES = ("not-logged-in", "fields-unspecified", "write-success")
+
+WRITE_STATE_SIGN_IN = 0
+
+WRITE_STATE_FILL_IN = 1
+
+WRITE_STATE_SUCCESS = 2
+
+WRITE_RETURN_STATUS = "status"
+
+@app.route("/write", methods = [ "POST" ])
+def write():
+
+    # BRANCH 0 : user not logged in
+    if not (user_logged_in()):
+        return json.dumps({
+            WRITE_RETURN_STATUS : WRITE_STRING_STATES[WRITE_STATE_SIGN_IN]
+        })
+
+    # extract username
+    author_name = session.get("username", "")
+
+    # extract food name
+    food_name = request.get_json().get("food-name", "")
+
+    # extract restaurant name
+    restaurant_name = request.get_json().get("restaurant-name", "")
+
+    # extract food price
+    food_price = request.get_json().get("food-price", "")
+
+    # extract food rating
+    food_rating = request.get_json().get("food-rating", "")
+
+    # extract service rating
+    service_rating = request.get_json().get("service-rating", "")
+
+    # extract recommendation rating
+    recommend_rating = request.get_json().get("recommend-rating", "")
+
+    # extract hashtags
+    hashtags = request.get_json().get("hashtags", [])
+
+    # BRANCH 1 : some fields were unspecified (empty)
+    if any([
+        author_name == "", food_name == "", restaurant_name == "", food_price == "",
+        food_rating == "", service_rating == "", recommend_rating == ""
+    ]):
+        return json.dumps({ WRITE_RETURN_STATUS : WRITE_STRING_STATES[WRITE_STATE_FILL_IN] })
+
+    # attempt to add review
+    review_manager.add_review(Review(food_name, restaurant_name, username, food_price, food_rating, service_rating, recommend_rating, hashtags))
+
+    # BRANCH 2 : review successfully added
+    return json.dumps({ WRITE_RETURN_STATUS : WRITE_STRING_STATES[WRITE_STATE_SUCCESS] })
 
 @app.route("/search", methods = [ "POST" ])
 def search():
