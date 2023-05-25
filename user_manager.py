@@ -157,8 +157,8 @@ class UserManager:
         self.collection.update_one(
             filter = { "username" : username },
             update = { 
-                "$push" : { "recommendations"        : { "$each" : unread_recommendations } } ,
-                "$set"  : { "unread_recommendations" : []                                   }
+                "$push" : { "recommended"        : { "$each" : unread_recommendations } } ,
+                "$set"  : { "unread_recommended" : []                                   }
             }
         )
 
@@ -169,8 +169,8 @@ class UserManager:
 
         # join recommended reviews whether read or unread
         recommendations = (
-            user_document["unread_recommendations"] + 
-            user_document["recommendations"]
+            user_document["unread_recommended"] + 
+            user_document["recommended"]
         )
 
         # mark recommendations as read if specified
@@ -183,7 +183,7 @@ class UserManager:
     def recommendations_unread(self, username : str) -> bool:
 
         # check whether user has unread recommendations
-        return (len(self.collection.find_one({ "username" : username })["unread_recommendations"]) > 0)
+        return (len(self.collection.find_one({ "username" : username })["unread_recommended"]) > 0)
 
     def fetch_password_and_salt(self, username : str) -> Tuple[ str, str ]:
 

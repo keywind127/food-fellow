@@ -73,10 +73,12 @@ class Review(dict):
 
     @classmethod
     def simplify(class_, review_document : Dict[ str, Any ]) -> Dict[ str, Any ]:
-        return {
+        simplified = {
             key : value for key, value in review_document.items()
                 if key not in class_._HIDDEN_FIELDS
         }
+        simplified["_id"] = str(simplified["_id"])
+        return simplified
 
 class ReviewManager:
 
@@ -194,6 +196,10 @@ class ReviewManager:
 
         # find reviews satisfying the criteria, and remove sensitive attributes with "simplify" method
         return list(map(Review.simplify, self.collection.find(filter_conditions)))
+
+    def _advanced_query(self, query_condition : dict) -> List[ Dict[ str, Any ] ]:
+
+        return list(map(Review.simplify, self.collection.find(query_condition)))
 
 if (__name__ == "__main__"):
 

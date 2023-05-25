@@ -5,7 +5,7 @@ from flask_session import Session
 
 from report_manager import ReportManager
 from access_manager import AccessManager
-from review_manager import ReviewManager, Review
+from review_manager import ReviewManager, ReviewCondition, Review
 from email_manager import GmailManager
 from user_manager import UserManager
 from ip_manager import IPManager
@@ -445,8 +445,15 @@ WRITE_STATE_SUCCESS = 2
 
 WRITE_RETURN_STATUS = "status"
 
-@app.route("/write", methods = [ "POST" ])
+@app.route("/write", methods = [ "GET", "POST" ])
 def write():
+
+    if (request.method == "GET"):
+
+        if not (user_logged_in()):
+            return redirect(url_for("index"))
+
+        return render_template("review.html")
 
     # BRANCH 0 : user not logged in
     if not (user_logged_in()):
@@ -478,6 +485,8 @@ def write():
     # extract hashtags
     hashtags = request.get_json().get("hashtags", [])
 
+    hashtags = list(filter("".__ne__, hashtags))
+
     # BRANCH 1 : some fields were unspecified (empty)
     if any([
         author_name == "", food_name == "", restaurant_name == "", food_price == "",
@@ -485,11 +494,76 @@ def write():
     ]):
         return json.dumps({ WRITE_RETURN_STATUS : WRITE_STRING_STATES[WRITE_STATE_FILL_IN] })
 
+    if not all([
+        food_price.isnumeric(), food_rating.isnumeric(), 
+        service_rating.isnumeric(), recommend_rating.isnumeric()
+    ]):
+        return json.dumps({ WRITE_RETURN_STATUS : WRITE_STRING_STATES[WRITE_STATE_FILL_IN] })
+
+    def bound_range(value):
+        return min(5, max(1, value))
+
     # attempt to add review
-    review_manager.add_review(Review(food_name, restaurant_name, username, food_price, food_rating, service_rating, recommend_rating, hashtags))
+    review_manager.add_review(Review(
+        food_name, restaurant_name, 
+        author_name, abs(int(food_price)), bound_range(int(food_rating)), 
+        bound_range(int(service_rating)), bound_range(int(recommend_rating)), hashtags)
+    )
 
     # BRANCH 2 : review successfully added
     return json.dumps({ WRITE_RETURN_STATUS : WRITE_STRING_STATES[WRITE_STATE_SUCCESS] })
+
+@app.route("/bookmarked", methods = [ "POST" ])
+def bookmarked():
+
+    if not (user_logged_in()):
+        return json.dumps({
+            "status" : "not-logged-in"
+        })
+
+    username = session.get("username")
+
+    bookmarked_ids = user_manager.fetch_bookmarks(username)
+
+    bookmarked_reviews = review_manager.fetch_reviews_by_ids(bookmarked_ids)
+
+    return json.dumps({
+        "status" : "retrieve-success", "data" : bookmarked_reviews
+    })
+
+@app.route("/written", methods = [ "POST" ])
+def written():
+
+    if not (user_logged_in()):
+        return json.dumps({
+            "status" : "not-logged-in"
+        })
+
+    username = session.get("username")
+
+    written_reviews = review_manager.fetch_reviews(ReviewCondition(author_name = username))
+
+    return json.dumps({
+        "status" : "retrieve-success", "data" : written_reviews
+    })
+
+@app.route("/recommended", methods = [ "POST" ])
+def recommended():
+
+    if not (user_logged_in()):
+        return json.dumps({
+            "status" : "not-logged-in"
+        })
+
+    username = session.get("username")
+
+    recommended_ids = user_manager.fetch_recommendations(username)
+
+    recommended_reviews = review_manager.fetch_reviews_by_ids(recommended_ids)
+
+    return json.dumps({
+        "status" : "retrieve-success", "data" : recommended_reviews
+    })
 
 @app.route("/search", methods = [ "POST" ])
 def search():
@@ -497,6 +571,21 @@ def search():
         return json.dumps({
             "status" : "user-not-logged-in"
         })
+    
+    search_string = request.get_json().get("search-string", "")
+
+    if (search_string == ""):
+        return json.dumps({
+            "status" : "empty-search-string"
+        })
+
+    found_reviews = review_manager._advanced_query(
+        { "$or" : [ { "author_name" : search_string }, { "food_name" : search_string }, { "restaurant_name" : search_string } ] }
+    )
+
+    return json.dumps({
+        "status" : "retrieve-success", "data" : found_reviews
+    })
 
 if (__name__ == "__main__"):
 

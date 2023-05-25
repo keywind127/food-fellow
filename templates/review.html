@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script src = "https://code.jquery.com/jquery-3.6.0.min.js" defer></script>
+  <script src = "{{  url_for('static', filename = 'review.js')  }}"></script>
+  <title>Review Writing Page</title>
+  <link rel = "stylesheet" href = "{{  url_for('static', filename = 'review.css')  }}">
+</head>
+<body>
+  <h1>Write a Review</h1>
+
+  <div class="form-container">
+    <div>
+      <label for="restaurant_name">Restaurant Name:</label>
+      <input type="text" id="restaurant_name" name="restaurant_name" required>
+
+      <label for="food_name">Food Name:</label>
+      <input type="text" id="food_name" name="food_name" required>
+
+      <label for="food_price">Food Price:</label>
+      <input type="text" id="food_price" name="food_price" required>
+
+      <label for="service_rating">Service Rating:</label>
+      <input type="number" id="service_rating" name="service_rating" min="1" max="5" value="5" required>
+
+      <label for="food_rating">Food Rating:</label>
+      <input type="number" id="food_rating" name="food_rating" min="1" max="5" value="5" required>
+
+      <label for="recommend_rating">Recommend Rating:</label>
+      <input type="number" id="recommend_rating" name="recommend_rating" min="1" max="5" value="5" required>
+
+      <label for="descriptive_tags">Descriptive Tags:</label>
+      <select id="descriptive_tags" name="descriptive_tags" multiple size="5">
+        <option value="salty">Salty</option>
+        <option value="sweet">Sweet</option>
+        <option value="sour">Sour</option>
+        <option value="bitter">Bitter</option>
+        <option value="chili">Chili</option>
+      </select>
+
+      <button class="submit-button" type="submit" onclick = "submit_review()">Submit Review</button>
+    </div>
+  </div>
+</body>
+</html>
