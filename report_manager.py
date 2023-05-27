@@ -8,10 +8,10 @@ import os
 class ReportManager(CryptoUtils):
 
     # admin's email address
-    _ADMIN_EMAIL = os.environ["FOOD_FELLOW_ADMIN_EMAIL"]
+    _ADMIN_EMAIL = "watersprayer127@gmail.com"#os.environ["FOOD_FELLOW_ADMIN_EMAIL"]
     
     # home page URL
-    BASE_SITE_URL = os.environ["FOOD_FELLOW_BASE"]
+    BASE_SITE_URL = "http://localhost:5000"#os.environ["FOOD_FELLOW_BASE"]
 
     def __init__(self, review_manager : ReviewManager, gmail_manager : GmailManager) -> None:
 

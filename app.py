@@ -14,11 +14,11 @@ import json, os
 
 app = Flask(__name__)
 
-app.config["MONGO_URI"] = os.environ["MONGO_FOOD_FELLOW"]
+app.config["MONGO_URI"] = "mongodb://localhost:27017/food-fellow"#os.environ["MONGO_FOOD_FELLOW"]
 
 app.config["SESSION_TYPE"] = "filesystem"
 
-app.config["SECRET_KEY"] = os.environ["SESSION_SECRET_KEY"]
+app.config["SECRET_KEY"] = "super-duper-secret-key"#os.environ["SESSION_SECRET_KEY"]
 
 Session(app)
 
@@ -28,7 +28,7 @@ review_manager = ReviewManager(database)
 
 ip_manager = IPManager(database)
 
-gmail_manager = GmailManager(os.environ["FOOD_FELLOW_USR"], os.environ["FOOD_FELLOW_PWD"])
+gmail_manager = GmailManager("ndhusmartank@gmail.com", "elkperuybhrkqrvt")#(os.environ["FOOD_FELLOW_USR"], os.environ["FOOD_FELLOW_PWD"])
 
 user_manager = UserManager(database, gmail_manager)
 

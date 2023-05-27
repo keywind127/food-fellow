@@ -30,7 +30,7 @@ class AccessManager(CryptoUtils):
 
     STATE_ACTIVATE_FAILURE = 2
 
-    BASE_SITE_URL = os.environ["FOOD_FELLOW_BASE"]
+    BASE_SITE_URL = "http://localhost:5000"#os.environ["FOOD_FELLOW_BASE"]
 
     MAX_LOGIN_FAILURES = 50000
 
