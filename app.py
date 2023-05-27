@@ -10,15 +10,15 @@ from email_manager import GmailManager
 from user_manager import UserManager
 from ip_manager import IPManager
 
-import json
+import json, os
 
 app = Flask(__name__)
 
-app.config["MONGO_URI"] = "mongodb://localhost:27017/food-fellow"
+app.config["MONGO_URI"] = os.environ["MONGO_FOOD_FELLOW"]
 
 app.config["SESSION_TYPE"] = "filesystem"
 
-app.config["SECRET_KEY"] = "super-duper-secret-key"
+app.config["SECRET_KEY"] = os.environ["SESSION_SECRET_KEY"]
 
 Session(app)
 
@@ -28,7 +28,7 @@ review_manager = ReviewManager(database)
 
 ip_manager = IPManager(database)
 
-gmail_manager = GmailManager("ndhusmartank@gmail.com", "elkperuybhrkqrvt")
+gmail_manager = GmailManager(os.environ["FOOD_FELLOW_USR"], os.environ["FOOD_FELLOW_PWD"])
 
 user_manager = UserManager(database, gmail_manager)
 
